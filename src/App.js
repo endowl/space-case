@@ -1,33 +1,21 @@
-// import logo from './logo.svg';
 import './App.css';
 import { Users, BrowserStorage } from '@spacehq/users'
 import _ from 'lodash'
-import mooncatparser from './mooncatparser'
-import {useState} from "react";
+import {Fragment, useState} from "react";
 import {useEffect} from "react";
-
-function generateMoonCatImage(catId, size){
-  size = size || 10;
-  var data = mooncatparser(catId);
-  var canvas = document.createElement("canvas");
-  canvas.width = size * data.length;
-  canvas.height = size * data[1].length;
-  var ctx = canvas.getContext("2d");
-
-  for(var i = 0; i < data.length; i++){
-    for(var j = 0; j < data[i].length; j++){
-      var color = data[i][j];
-      if(color){
-        ctx.fillStyle = color;
-        ctx.fillRect(i * size, j * size, size, size);
-      }
-    }
-  }
-  return canvas.toDataURL();
-}
+import IdentiCat from "./IdentiCat";
 
 function App() {
   const [identities, setIdentities] = useState({})
+
+  const catIdFromPubKey = (pubKey) => {
+    let hexcode = "0x00"
+    _.forEach(_.slice(pubKey, 0, 4), (value) => {
+      hexcode = hexcode + value.toString(16)
+    })
+    console.log(hexcode)
+    return hexcode
+  }
 
   async function initializeUsers() {
     // TODO: Move this code block to an appropriate spot
@@ -59,18 +47,6 @@ function App() {
     }
 
     userList = await storage.list()
-
-    // set moon cat id on each identity
-    _.forEach(userList, (id) => {
-      let hexcode = "0x00"
-      _.forEach(_.slice(id.pubKey, 0, 4), (value) => {
-        // console.log(value.toString(16))
-        hexcode = hexcode + value.toString(16)
-      })
-      console.log(hexcode)
-      id.catId = hexcode
-    })
-
     console.log("userList: ", userList)
 
     setIdentities(userList)
@@ -83,7 +59,6 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        {/*<img src={logo} className="App-logo" alt="logo" />*/}
         {_.isEmpty(identities) && (
             <>
               <p>Checking for saved identity</p>
@@ -94,10 +69,10 @@ function App() {
               <p>Identity loaded</p>
               <>
                 {identities.map(id => (
-                    <>
-                      <img src={generateMoonCatImage(id.catId, 8)} className="App-logo" alt="identicat" />
-                      <small>0x{id.catId.substr(4)}...</small>
-                    </>
+                    <Fragment key={id.pubKey}>
+                      <IdentiCat catId={catIdFromPubKey(id.pubKey)} size="8" />
+                      <small>0x{catIdFromPubKey(id.pubKey).substr(4)}...</small>
+                    </Fragment>
                 ))}
               </>
             </>
