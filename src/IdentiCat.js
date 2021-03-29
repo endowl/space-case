@@ -1,5 +1,4 @@
 import mooncatparser from "./mooncatparser";
-// import mooncatparser from "./moonowlparser";
 
 function generateMoonCatImage(catId, size) {
     size = size || 10;
