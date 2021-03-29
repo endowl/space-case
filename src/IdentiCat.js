@@ -1,4 +1,5 @@
 import mooncatparser from "./mooncatparser";
+// import mooncatparser from "./moonowlparser";
 
 function generateMoonCatImage(catId, size) {
     size = size || 10;
@@ -27,7 +28,7 @@ function generateMoonCatImage(catId, size) {
 function IdentiCat(props) {
     const size = props.size ? props.size : 10
     return (
-        <img src={generateMoonCatImage(props.catId, size)} className="identicat" alt="identicat" />
+        <div className="cat-thumb"><img src={generateMoonCatImage(props.catId, size)} className="identicat" alt="identicat" /></div>
     )
 }
 

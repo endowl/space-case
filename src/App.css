@@ -37,6 +37,18 @@
   }
 }
 
+
+.identity-choice {
+  border: 4px solid transparent;
+  width: 180px;
+}
+.identity-choice.current {
+  background-color: #444444;
+  border: 4px solid #61dafb;
+}
+
+/*** Moon Cat designs and some page style elements come from https://mooncatrescue.com/ ***/
+
 button{
   padding: 10px 20px;
   margin: 10px;
@@ -64,6 +76,7 @@ button:active{
   box-shadow: 2px 2px 0px 0px #444444;
 }
 
+
 button.ok{
   background-color: green;
 }
@@ -78,4 +91,28 @@ button.nav{
 
 button.select{
   background-color: orange;
+}
+
+.cat-thumb {
+
+  order: 0;
+  flex: 0 0 auto;
+  align-self: auto;
+
+  padding: 5px;
+  margin: 5px;
+  text-align: center;
+
+}
+.cat-thumb img {
+  cursor: -webkit-grab;
+  cursor: grab;
+
+  image-rendering: pixelated;
+  -webkit-transition: transform 1s;
+  transition: transform 1s;
+}
+.cat-thumb img:hover{
+  /*transform: scale(4);*/
+  transform: scale(1.5);
 }
