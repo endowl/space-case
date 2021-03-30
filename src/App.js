@@ -27,8 +27,8 @@ function App() {
 
   const initializeUsers = async () => {
     console.log("Initializing users from browser storage")
-    const storage = new BrowserStorage()
-    setBrowserStorage(storage)
+    const browserUserStorage = new BrowserStorage()
+    setBrowserStorage(browserUserStorage)
     // console.log("BrowserStorage result: ", storage)
 
     // error is thrown when identity fails to auth
@@ -38,63 +38,61 @@ function App() {
 
     // users are automatically restored from stored identities
     // TODO: Figure out why the correct end point seems to keep changing over time.....
-    // const users = await Users.withStorage(storage, {endpoint: "users.space.storage"}, onErrorCallback)
-    // const users = await Users.withStorage(storage, {endpoint: "wss://users.space.storage"}, onErrorCallback)
-    // const users = await Users.withStorage(storage, {endpoint: "wss://auth-dev.space.storage"}, onErrorCallback)
-    // const users = await Users.withStorage(storage, {endpoint: "wss://auth.space.storage"}, onErrorCallback)
-    const users = await Users.withStorage(storage, {endpoint: "auth.space.storage"}, onErrorCallback)
+    // const users = await Users.withStorage(browserUserStorage, {endpoint: "users.space.storage"}, onErrorCallback)
+    // const users = await Users.withStorage(browserUserStorage, {endpoint: "wss://users.space.storage"}, onErrorCallback)
+    // const users = await Users.withStorage(browserUserStorage, {endpoint: "wss://auth-dev.space.storage"}, onErrorCallback)
+    const users = await Users.withStorage(browserUserStorage, {endpoint: "wss://auth.space.storage"}, onErrorCallback)
     console.log("Initialized users object using browser storage")
     console.log("users: ", users)
     console.log("users.list(): ", users.list())
 
-    let userList = await storage.list()
-    // let userList = users.list()
-    console.log("storage.list(): ", await storage.list())
+    // let userList = await storage.list()
+    let userList = users.list()
+
+    console.log("storage.list(): ", await browserUserStorage.list())
 
     if(_.isEmpty(userList)) {
       console.log("No identities found")
       // TODO: Prompt to restore an identity as alternative to creating a new one?
       const identity = await users.createIdentity()
       console.log("Created identity", identity)
+      const newUser = await users.authenticate(identity)
+      console.log("Authenticated new user")
     } else {
       console.log("Identities found", userList)
     }
 
-    userList = await storage.list()
-    console.log("userList: ", userList)
+    const browserUserList = await browserUserStorage.list()
+    console.log("browserUserList: ", browserUserList)
 
-    setIdentities(userList)
+    setIdentities(browserUserList)
     setSpaceUsers(users)
   }
 
   const handleNewIdentity = async () => {
     console.log("Request to create a new identity")
-    await spaceUsers.createIdentity()
-    let userList = await browserStorage.list()
-    setIdentities(userList)
+    const identity = await spaceUsers.createIdentity()
+    console.log("Created new identity")
+    const newUser = await spaceUsers.authenticate(identity)
+    console.log("Authenticated new user")
+    let browserUserList = await browserStorage.list()
+    setIdentities(browserUserList)
   }
 
   const handleSelectIdentity = async (index) => {
     console.log("Request to select identity #", index)
     setCurrentUser(index)
 
-    // console.log("spaceUsers.list():", spaceUsers.list())
-    // console.log("browserStorage.list(): ", await browserStorage.list())
-    const userList = await browserStorage.list()
+    const userList = spaceUsers.list()
+    console.log("userList: ", userList)
+
     const user = userList[index]
-    console.log("currently selected user: ", user)
+    console.log("user: ", user)
 
-    // NOTE: This list should not typically be empty, as a new identity is generated if none are present.
-    //       For some reason it is not getting populated any more...
-
-    // Setup spaceStorage for the selected user
-    // const userStorage = new UserStorage(user)
-    // console.log("userStorage: ", userStorage)
-    // setSpaceStorage(userStorage)
-
+    const userSpaceStorage = new UserStorage(user)
+    console.log("userSpaceStorage: ", userSpaceStorage)
+    setSpaceStorage(userSpaceStorage)
   }
-
-  // let catId
 
   useEffect(() => {
     initializeUsers()
