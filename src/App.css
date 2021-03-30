@@ -135,7 +135,8 @@ h2, h3 {
 
 /*** Moon Cat designs and some page style elements come from https://mooncatrescue.com/ ***/
 
-button{
+button,
+input[type=file]{
   padding: 6px 20px;
   margin: 10px;
   font-size: 1.1em;
@@ -146,6 +147,10 @@ button{
   box-shadow: 8px 8px 0px 0px #444444;
   cursor: pointer;
   outline: none;
+}
+input[type=file]{
+  max-width: 250px;
+  font-size: 0.8em;
 }
 
 button:hover{

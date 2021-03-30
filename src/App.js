@@ -6,6 +6,7 @@ import {Fragment, useState} from "react";
 import {useEffect} from "react";
 import IdentiCat from "./IdentiCat";
 import words from 'random-words';
+// import * as path from "path";  // WTF?
 
 function App() {
   const bucketName = "com.endowl.space-case"
@@ -16,10 +17,12 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [spaceStorage, setSpaceStorage] = useState({})
   // directoryList is a recursive list of all dirs and files
-  const [directoryList, setDirectoryList] = useState({ items: [] })
+  const [directoryList, setDirectoryList] = useState([])
   const [currentPath, setCurrentPath] = useState("/")
   // fileList contains a list of the files at the currentPath
   const [fileList, setFileList] = useState([])
+  const [currentFile, setCurrentFile] = useState("")
+  const [inputFile, setInputFile] = useState()
 
   // Use first 4 bytes of pubKey to create catId for use with identiCat
   const catIdFromPubKey = (pubKey) => {
@@ -103,34 +106,69 @@ function App() {
     setSpaceStorage(userSpaceStorage)
   }
 
-  const handleOpenFile = async (file) => {
+  const handleSelectFile = async (file) => {
     // read content of an uploaded file
+    console.log("Request to select file")
+    setCurrentFile(file.path)
+    // const fileResponse = await spaceStorage.openFile({ bucket: bucketName, path: file.path});
+    // const fileContent = await fileResponse.consumeStream();
+    // console.log("fileContent: ", fileContent)
+  }
+
+  const handleOpenFile = async () => {
     console.log("Request to open file")
-    const fileResponse = await spaceStorage.openFile({ bucket: bucketName, path: file.path});
+    const file = currentFile
+    console.log("file: ", file)
+    const fileResponse = await spaceStorage.openFile({ bucket: bucketName, path: file});
     const fileContent = await fileResponse.consumeStream();
     console.log("fileContent: ", fileContent)
   }
 
   const handleSelectPath = async (path) => {
+    console.log("Request to select path: ", path)
+    setCurrentFile("")
     setCurrentPath(path)
-    console.log("path: ", path)
-    // readStorage()
-    // const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: currentPath, recursive: false })
-    const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: true })
-    setDirectoryList(ls)
-    console.log("ls: ", ls)
+
+    // get listing of files from Fleek at requested path
+    const files = await spaceStorage.listDirectory({bucket: bucketName, path: path, recursive: false })
+    setFileList(files.items)
+    console.log("files.items: ", files.items)
+
+    // update root directory list, but only call Fleek again if we need to
+    if(path === '' || path === '/') {
+      // selected path is already the root directory, copy  directory listing from file listing
+      let directories = []
+      files.items.map(file => {
+        if(file.isDir) {
+          directories.push(file)
+        }
+      })
+      console.log("parsed directories: ", directories)
+      setDirectoryList(directories)
+    } else {
+      // selected path is a subdirectory, refresh root directory listing
+      const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: false })
+      setDirectoryList(directoriesFromSpace(ls))
+    }
   }
 
-  const readStorage = async () => {
-    const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: true })
-    // const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: currentPath, recursive: false })
-    setDirectoryList(ls)
+  // Refresh root directory listing
+  const reloadRootDirectory = async () => {
+    const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: false })
+    setDirectoryList(directoriesFromSpace(ls))
     console.log("ls: ", ls)
-    // if(_.isEmpty(currentPath) && !_.isEmpty(ls.items)) {
-    //   console.log("currentPath not set, setting it to: ", ls.items[0].path)
-    //   setCurrentPath(ls.items[0].path)
-    // }
     return ls
+  }
+
+  // Take result of spaceStorage.listDirectory and return array of the top level directories
+  const directoriesFromSpace = (listDirectoryResult) => {
+    let directories = []
+    listDirectoryResult.items.map(file => {
+      if(file.isDir) {
+        directories.push(file)
+      }
+    })
+    return directories
   }
 
   const handleNewDirectory = async () => {
@@ -150,13 +188,84 @@ function App() {
     const mkdir = await spaceStorage.createFolder({ bucket: bucketName, path: folderName })
     console.log("mkdir: ", mkdir)
     setCurrentPath("/" + folderName)
-    await readStorage()
+    await reloadRootDirectory()
   }
+
+  const handleFileChange = async (event) => {
+    console.log("Selected file changed");
+    // console.log("event", event);
+    const file = event.target.files[0];
+    console.log("event.target.files[0]", file);
+    setInputFile(file);
+  }
+
+
+  const handleFileUpload = async (event) => {
+    // upload a file
+    if(_.isNull(inputFile)) {
+      console.log("ALERT: inputFile is null")
+      return
+    }
+    let path = currentPath
+    if(path === '' || path.substr(path.length-1) !== '/') {
+      path = path + '/'
+    }
+    // NOTE: OMFG, Fleeks docs say to use "content" but it needs to be called "data"!!!!!
+    const uploadResponse = await spaceStorage.addItems({
+      bucket: bucketName,
+      files: [
+        {
+          // path: path + 'file.txt',
+          path: path + inputFile.name,
+          // path: 'file.txt',
+          // content: inputFile,
+          // data: "This is only a test"
+          data: inputFile,
+          mimeType: inputFile.type
+        }      ],
+    });
+    // uploadresponse is an event listener
+    uploadResponse.once('done', (data) => {
+      // returns a summary of all files and their upload status
+      console.log("uploadResponse summary: ", data)
+      // TODO: break this out a little more semantically, the intent being to refresh the file list
+      handleSelectPath(currentPath)
+    })
+
+    /*
+    console.log("Uploading file to Textile");
+    const path = "test_path";
+    const result = await storage.insertFile(buckets, bucketKey, selectedFile, path);
+    console.log("Done uploading file to Textile")
+    console.log("result", result);
+
+    // TODO: Move this
+    // Read back test file from the Bucket
+    console.log("Reading test file from Textile Bucket");
+    // TODO: Create link to download/view the retrieved file
+    try {
+      const data = buckets.pullPath(bucketKey, path)
+      const { value } = await data.next();
+      console.log("data value", value)
+      let str = "";
+      for (let i = 0; i < value.length; i++) {
+        str += String.fromCharCode(parseInt(value[i]));
+      }
+      console.log("str", str);
+
+    } catch (error) {
+      console.log("Error while loading file from bucket", error)
+    }
+    */
+  }
+
+
+
 
   useEffect(() => {
     console.log("spaceStorage updated")
     if(!_.isEmpty(spaceStorage)) {
-      readStorage().then(ls => {
+      reloadRootDirectory().then(ls => {
         // Read spaceStorage from Fleek
         // console.log("ls", ls)
         if(_.isEmpty(ls.items)) {
@@ -212,14 +321,16 @@ function App() {
                 {!_.isNull(currentUser) && _.isEmpty(spaceStorage) && (
                     <h3>Loading user data...</h3>
                 )}
-                {_.isEmpty(directoryList.items) && (
+                {_.isEmpty(directoryList) && (
                     <h3>Initializing storage bucket...</h3>
                 )}
-                {!_.isEmpty(directoryList.items) && (
+                {(!_.isEmpty(fileList) || !_.isEmpty(directoryList)) && (
                     <>
                       <h3>My Files:</h3>
                       <button onClick={handleNewDirectory}>+ Dir</button>
-                      <button>Upload</button>
+                      <input type="file" onChange={handleFileChange} />
+                      <button onClick={handleFileUpload}>Upload</button>
+                      <button onClick={handleOpenFile} disabled={_.isEmpty(currentFile)}>Open File</button>
                       <div>
                         Path: {currentPath}
                       </div>
@@ -229,12 +340,12 @@ function App() {
                             <li className={('/' === currentPath) ? "current" : ""} onClick={() => handleSelectPath('/')}>
                               /
                             </li>
-                            {directoryList.items.map((item, index) => {
+                            {directoryList.map((directory, index) => {
                               return (
-                                  <Fragment key={item.path}>
-                                    {item.isDir && (
-                                      <li className={(item.path === currentPath) ? "current" : ""} onClick={() => handleSelectPath(item.path)}>
-                                        {item.name}
+                                  <Fragment key={directory.path}>
+                                    {directory.isDir && (
+                                      <li className={(directory.path === currentPath) ? "current" : ""} onClick={() => handleSelectPath(directory.path)}>
+                                        {directory.name}
                                       </li>
                                     )}
                                   </Fragment>
@@ -244,7 +355,20 @@ function App() {
                         </div>
                         <div className="files">
                           <ul>
-                            {directoryList.items.map((item, index) => {
+                            {fileList.map((file, index) => {
+                              return (
+                                <Fragment key={file.path}>
+                                  {!file.isDir && (
+                                    <li className={(file.path === currentFile) ? "current" : ""} onClick={() => handleSelectFile(file)}>
+                                      {file.name}
+                                    </li>
+                                  )}
+                                </Fragment>
+                                )
+                            })}
+
+
+                            {directoryList.map((item, index) => {
                               <Fragment key={item.path}>
                                 {currentPath === item.path && !item.isDir && (
                                     <li className={(item.path === currentPath) ? "current" : ""}>
@@ -260,7 +384,7 @@ function App() {
                                                 handleSelectPath(file.path)
                                               }
                                               else {
-                                                handleOpenFile(file)
+                                                handleSelectFile(file)
                                               }
                                             }}>
                                               {file.name}
