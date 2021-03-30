@@ -6,7 +6,6 @@ import {Fragment, useState} from "react";
 import {useEffect} from "react";
 import IdentiCat from "./IdentiCat";
 import words from 'random-words';
-// import * as path from "path";  // WTF?
 
 function App() {
   const bucketName = "com.endowl.space-case"
@@ -16,9 +15,9 @@ function App() {
   const [spaceUsers, setSpaceUsers] = useState({})
   const [currentUser, setCurrentUser] = useState(null)
   const [spaceStorage, setSpaceStorage] = useState({})
-  // directoryList is a recursive list of all dirs and files
-  const [directoryList, setDirectoryList] = useState([])
   const [currentPath, setCurrentPath] = useState("/")
+  // directoryList is a list of all dirs at the top level
+  const [directoryList, setDirectoryList] = useState([])
   // fileList contains a list of the files at the currentPath
   const [fileList, setFileList] = useState([])
   const [currentFile, setCurrentFile] = useState("")
@@ -107,15 +106,12 @@ function App() {
   }
 
   const handleSelectFile = async (file) => {
-    // read content of an uploaded file
     console.log("Request to select file")
     setCurrentFile(file.path)
-    // const fileResponse = await spaceStorage.openFile({ bucket: bucketName, path: file.path});
-    // const fileContent = await fileResponse.consumeStream();
-    // console.log("fileContent: ", fileContent)
   }
 
   const handleOpenFile = async () => {
+    // Read content of a file from Fleek bucket
     console.log("Request to open file")
     const file = currentFile
     console.log("file: ", file)
@@ -172,15 +168,9 @@ function App() {
   }
 
   const handleNewDirectory = async () => {
-    // let path = ""
-    // if(currentPath !== '/') {
-    //   path = currentPath + "/"
-    // }
     const dirName = words({exactly: 2, join: '-'})
-    // console.log("path: ", path)
     console.log("dirName: ", dirName)
     createFolder(dirName)
-    // createFolder(path + dirName)
   }
 
   const createFolder = async (folderName) => {
@@ -191,19 +181,24 @@ function App() {
     await reloadRootDirectory()
   }
 
+  /*
   const handleFileChange = async (event) => {
-    console.log("Selected file changed");
+    console.log("Input file changed");
     // console.log("event", event);
     const file = event.target.files[0];
     console.log("event.target.files[0]", file);
     setInputFile(file);
   }
-
+  */
 
   const handleFileUpload = async (event) => {
     // upload a file
-    if(_.isNull(inputFile)) {
-      console.log("ALERT: inputFile is null")
+    const file = event.target.files[0];
+    console.log("event.target.files[0]", file);
+    setInputFile(file);
+
+    if(_.isNull(file)) {
+      console.log("ALERT: file is null")
       return
     }
     let path = currentPath
@@ -216,15 +211,14 @@ function App() {
       files: [
         {
           // path: path + 'file.txt',
-          path: path + inputFile.name,
+          path: path + file.name,
           // path: 'file.txt',
-          // content: inputFile,
+          // content: file,
           // data: "This is only a test"
-          data: inputFile,
-          mimeType: inputFile.type
+          data: file,
+          mimeType: file.type
         }      ],
     });
-    // uploadresponse is an event listener
     uploadResponse.once('done', (data) => {
       // returns a summary of all files and their upload status
       console.log("uploadResponse summary: ", data)
@@ -327,10 +321,22 @@ function App() {
                 {(!_.isEmpty(fileList) || !_.isEmpty(directoryList)) && (
                     <>
                       <h3>My Files:</h3>
-                      <button onClick={handleNewDirectory}>+ Dir</button>
-                      <input type="file" onChange={handleFileChange} />
-                      <button onClick={handleFileUpload}>Upload</button>
-                      <button onClick={handleOpenFile} disabled={_.isEmpty(currentFile)}>Open File</button>
+                      <button onClick={handleNewDirectory}>
+                        + Mkdir
+                      </button>
+                      <label className="file-upload">
+                        <input type="file" onChange={handleFileUpload} />
+                        ^ Upload
+                      </label>
+                      {/*<button onClick={handleFileUpload}>^ Upload</button>*/}
+                      <button onClick={handleOpenFile} disabled={_.isEmpty(currentFile)}>
+                        [] Open File
+                      </button>
+                      <br />
+                      <input placeholder="address" />
+                      <button disabled={_.isEmpty(currentFile)}>
+                        &amp; Share
+                      </button>
                       <div>
                         Path: {currentPath}
                       </div>
@@ -366,66 +372,6 @@ function App() {
                                 </Fragment>
                                 )
                             })}
-
-
-                            {directoryList.map((item, index) => {
-                              <Fragment key={item.path}>
-                                {currentPath === item.path && !item.isDir && (
-                                    <li className={(item.path === currentPath) ? "current" : ""}>
-                                      {item.name}
-                                    </li>
-                                )}
-                                {currentPath == item.path && item.isDir && (
-                                    <>
-                                      {item.items.map((file, fileIndex) => {
-                                        return (
-                                            <li key={file.path} onClick={() => {
-                                              if(file.isDir) {
-                                                handleSelectPath(file.path)
-                                              }
-                                              else {
-                                                handleSelectFile(file)
-                                              }
-                                            }}>
-                                              {file.name}
-                                            </li>
-                                        )
-                                      })}
-                                    </>
-                                )}
-                              </Fragment>
-                            })}
-
-                            {/*
-                            {directoryList.items.map((item, index) => {
-                              if(item.isDir) {
-                                return <></>
-                              }
-                              return (
-                                  <Fragment key={item.path}>
-                                    {!item.isDir && (
-                                      <li className={(item.path === currentPath) ? "current" : ""}>
-                                        {item.name}
-                                      </li>
-                                    )}
-                                    {item.items.map((file, fileIndex) => {
-                                      return (
-                                          <li key={file.path} onClick={() => {
-                                            if(file.isDir) {
-                                              handleSelectPath(file.path)
-                                            }
-                                            else {
-                                              handleOpenFile(file)
-                                            }
-                                          }}>
-                                            {file.name}
-                                          </li>
-                                      )
-                                    })}
-                                  </Fragment>
-                              )
-                            })}
-                            */}
                           </ul>
                         </div>
                       </div>

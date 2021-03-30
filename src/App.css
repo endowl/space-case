@@ -135,8 +135,24 @@ h2, h3 {
 
 /*** Moon Cat designs and some page style elements come from https://mooncatrescue.com/ ***/
 
+label.file-upload input[type=file] {
+  display: none;
+}
+
+input {
+  margin-left: 5px;
+  margin-right: 5px;
+  font-size: 1.1em;
+  padding: 8px 12px;
+  color: #fff;
+  font-family: 'pixelar', courier, mono space, sans-serif;
+  background-color: #222;
+  border: 2px solid blue;
+
+}
+
 button,
-input[type=file]{
+label.file-upload {
   padding: 6px 20px;
   margin: 10px;
   font-size: 1.1em;
@@ -148,16 +164,28 @@ input[type=file]{
   cursor: pointer;
   outline: none;
 }
+/*
 input[type=file]{
   max-width: 250px;
   font-size: 0.8em;
 }
+*/
 
-button:hover{
+button:hover,
+label.file-upload:hover{
   position: relative;
   top: 3px;
   left: 3px;
   box-shadow: 5px 5px 0px 0px #444444;
+}
+
+button:disabled,
+button[disabled] {
+  top: 0;
+  left: 0;
+  box-shadow: 8px 8px 0px 0px #444444;
+  background-color: #555555;
+  color: #999999;
 }
 
 button:active{
