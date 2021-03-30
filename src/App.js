@@ -5,6 +5,7 @@ import _ from 'lodash'
 import {Fragment, useState} from "react";
 import {useEffect} from "react";
 import IdentiCat from "./IdentiCat";
+import words from 'random-words';
 
 function App() {
   const bucketName = "com.endowl.space-case"
@@ -14,8 +15,11 @@ function App() {
   const [spaceUsers, setSpaceUsers] = useState({})
   const [currentUser, setCurrentUser] = useState(null)
   const [spaceStorage, setSpaceStorage] = useState({})
+  // directoryList is a recursive list of all dirs and files
   const [directoryList, setDirectoryList] = useState({ items: [] })
-  const [currentPath, setCurrentPath] = useState("")
+  const [currentPath, setCurrentPath] = useState("/")
+  // fileList contains a list of the files at the currentPath
+  const [fileList, setFileList] = useState([])
 
   // Use first 4 bytes of pubKey to create catId for use with identiCat
   const catIdFromPubKey = (pubKey) => {
@@ -111,14 +115,15 @@ function App() {
     setCurrentPath(path)
     console.log("path: ", path)
     // readStorage()
-    const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: currentPath, recursive: false })
+    // const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: currentPath, recursive: false })
+    const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: true })
     setDirectoryList(ls)
     console.log("ls: ", ls)
   }
 
   const readStorage = async () => {
-    // const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: true })
-    const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: currentPath, recursive: false })
+    const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: true })
+    // const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: currentPath, recursive: false })
     setDirectoryList(ls)
     console.log("ls: ", ls)
     // if(_.isEmpty(currentPath) && !_.isEmpty(ls.items)) {
@@ -126,6 +131,18 @@ function App() {
     //   setCurrentPath(ls.items[0].path)
     // }
     return ls
+  }
+
+  const handleNewDirectory = async () => {
+    // let path = ""
+    // if(currentPath !== '/') {
+    //   path = currentPath + "/"
+    // }
+    const dirName = words({exactly: 2, join: '-'})
+    // console.log("path: ", path)
+    console.log("dirName: ", dirName)
+    createFolder(dirName)
+    // createFolder(path + dirName)
   }
 
   const createFolder = async (folderName) => {
@@ -144,7 +161,8 @@ function App() {
         // console.log("ls", ls)
         if(_.isEmpty(ls.items)) {
           console.log("SpaceStorage is empty, creating initial folder")
-          createFolder("My Art")
+          // createFolder("My Art")
+          handleNewDirectory()
         }
       })
     }
@@ -200,7 +218,7 @@ function App() {
                 {!_.isEmpty(directoryList.items) && (
                     <>
                       <h3>My Files:</h3>
-                      <button>+ Dir</button>
+                      <button onClick={handleNewDirectory}>+ Dir</button>
                       <button>Upload</button>
                       <div>
                         Path: {currentPath}
@@ -227,6 +245,35 @@ function App() {
                         <div className="files">
                           <ul>
                             {directoryList.items.map((item, index) => {
+                              <Fragment key={item.path}>
+                                {currentPath === item.path && !item.isDir && (
+                                    <li className={(item.path === currentPath) ? "current" : ""}>
+                                      {item.name}
+                                    </li>
+                                )}
+                                {currentPath == item.path && item.isDir && (
+                                    <>
+                                      {item.items.map((file, fileIndex) => {
+                                        return (
+                                            <li key={file.path} onClick={() => {
+                                              if(file.isDir) {
+                                                handleSelectPath(file.path)
+                                              }
+                                              else {
+                                                handleOpenFile(file)
+                                              }
+                                            }}>
+                                              {file.name}
+                                            </li>
+                                        )
+                                      })}
+                                    </>
+                                )}
+                              </Fragment>
+                            })}
+
+                            {/*
+                            {directoryList.items.map((item, index) => {
                               if(item.isDir) {
                                 return <></>
                               }
@@ -237,22 +284,24 @@ function App() {
                                         {item.name}
                                       </li>
                                     )}
-                                    {/*
                                     {item.items.map((file, fileIndex) => {
                                       return (
                                           <li key={file.path} onClick={() => {
-                                            if(!file.isDir) {
+                                            if(file.isDir) {
+                                              handleSelectPath(file.path)
+                                            }
+                                            else {
                                               handleOpenFile(file)
                                             }
                                           }}>
-                                            |-- {file.name}
+                                            {file.name}
                                           </li>
                                       )
                                     })}
-                                    */}
                                   </Fragment>
                               )
                             })}
+                            */}
                           </ul>
                         </div>
                       </div>
