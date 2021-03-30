@@ -14,18 +14,15 @@ function App() {
   const [spaceUsers, setSpaceUsers] = useState({})
   const [currentUser, setCurrentUser] = useState(null)
   const [spaceStorage, setSpaceStorage] = useState({})
-
   const [directoryList, setDirectoryList] = useState({ items: [] })
   const [currentPath, setCurrentPath] = useState("")
 
-
-  // Use first 4 bytes of pubKey to create catId
+  // Use first 4 bytes of pubKey to create catId for use with identiCat
   const catIdFromPubKey = (pubKey) => {
     let hexcode = "0x00"
     _.forEach(_.slice(pubKey, 0, 4), (value) => {
       hexcode = hexcode + value.toString(16).padStart(2, '0')
     })
-    // console.log("hexcode", hexcode)
     return hexcode
   }
 
@@ -49,7 +46,7 @@ function App() {
     }
 
     // users are automatically restored from stored identities
-    // TODO: Figure out why the correct end point seems to keep changing over time.....
+    // TODO: Figure out why the correct end point seems to keep changing over time, or is it just inconsistent docs?.....
     // const users = await Users.withStorage(browserUserStorage, {endpoint: "users.space.storage"}, onErrorCallback)
     // const users = await Users.withStorage(browserUserStorage, {endpoint: "wss://users.space.storage"}, onErrorCallback)
     // const users = await Users.withStorage(browserUserStorage, {endpoint: "wss://auth-dev.space.storage"}, onErrorCallback)
@@ -60,7 +57,6 @@ function App() {
 
     // let userList = await storage.list()
     let userList = users.list()
-
     console.log("storage.list(): ", await browserUserStorage.list())
 
     if(_.isEmpty(userList)) {
@@ -94,36 +90,41 @@ function App() {
   const handleSelectIdentity = async (index) => {
     console.log("Request to select identity #", index)
     setCurrentUser(index)
-
     const userList = spaceUsers.list()
     console.log("userList: ", userList)
-
     const user = userList[index]
     console.log("user: ", user)
-
     const userSpaceStorage = new UserStorage(user)
     console.log("userSpaceStorage: ", userSpaceStorage)
     setSpaceStorage(userSpaceStorage)
   }
 
-
   const handleOpenFile = async (file) => {
     // read content of an uploaded file
     console.log("Request to open file")
-    // const fileResponse = await props.spaceStorage.openFile({ bucket: bucketName, path: '/file.txt'});
     const fileResponse = await spaceStorage.openFile({ bucket: bucketName, path: file.path});
     const fileContent = await fileResponse.consumeStream();
     console.log("fileContent: ", fileContent)
   }
 
-  const readStorage = async () => {
-    const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: true })
+  const handleSelectPath = async (path) => {
+    setCurrentPath(path)
+    console.log("path: ", path)
+    // readStorage()
+    const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: currentPath, recursive: false })
     setDirectoryList(ls)
     console.log("ls: ", ls)
-    if(_.isEmpty(currentPath) && !_.isEmpty(ls.items)) {
-      console.log("currentPath not set, setting it to: ", ls.items[0].path)
-      setCurrentPath(ls.items[0].path)
-    }
+  }
+
+  const readStorage = async () => {
+    // const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: true })
+    const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: currentPath, recursive: false })
+    setDirectoryList(ls)
+    console.log("ls: ", ls)
+    // if(_.isEmpty(currentPath) && !_.isEmpty(ls.items)) {
+    //   console.log("currentPath not set, setting it to: ", ls.items[0].path)
+    //   setCurrentPath(ls.items[0].path)
+    // }
     return ls
   }
 
@@ -156,6 +157,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
+        <h2>Space Case</h2>
         {_.isEmpty(identities) && (
             <>
               <p>Checking for saved identities</p>
@@ -164,7 +166,7 @@ function App() {
         {!_.isEmpty(identities) && _.isNull(currentUser) && (
             <>
               <div className="identity-selection">
-                <p>My Identities</p>
+                <h3>My Identities</h3>
                 <>
                   {identities.map((id, index) => (
                       <div className={(!_.isNull(currentUser) && currentUser === index) ? "identity-choice current" : "identity-choice"} key={id.pubKey} onClick={() => handleSelectIdentity(index)}>
@@ -172,6 +174,7 @@ function App() {
                         <small>0x{catIdFromPubKey(id.pubKey).substr(4)}...</small>
                       </div>
                   ))}
+                  <br />
                   <button className="select" onClick={handleNewIdentity}>
                     + New Identity
                   </button>
@@ -187,38 +190,72 @@ function App() {
               <small>{hexFromPubKey(identities[currentUser].pubKey)}</small>
               {/*<input readOnly={true} value={hexFromPubKey(identities[currentUser].pubKey)} />*/}
 
-              <div className="file-directory">
+              <div className="">
                 {!_.isNull(currentUser) && _.isEmpty(spaceStorage) && (
-                    <p>Loading user data...</p>
+                    <h3>Loading user data...</h3>
                 )}
                 {_.isEmpty(directoryList.items) && (
-                    <p>Initializing storage bucket...</p>
+                    <h3>Initializing storage bucket...</h3>
                 )}
                 {!_.isEmpty(directoryList.items) && (
                     <>
-                      <p>Directories:</p>
-                      <ul>
-                        {directoryList.items.map((item, index) => {
-                          return (
-                              <Fragment key={item.path}>
-                                <li className={(item.path === currentPath) ? "current" : ""}>
-                                  {item.name}
-                                </li>
-                                {item.items.map((file, fileIndex) => {
-                                  return (
-                                      <li key={file.path} onClick={() => {
-                                        if(!file.isDir) {
-                                          handleOpenFile(file)
-                                        }
-                                      }}>
-                                        |-- {file.name}
+                      <h3>My Files:</h3>
+                      <button>+ Dir</button>
+                      <button>Upload</button>
+                      <div>
+                        Path: {currentPath}
+                      </div>
+                      <div className="file-directory">
+                        <div className="directories">
+                          <ul>
+                            <li className={('/' === currentPath) ? "current" : ""} onClick={() => handleSelectPath('/')}>
+                              /
+                            </li>
+                            {directoryList.items.map((item, index) => {
+                              return (
+                                  <Fragment key={item.path}>
+                                    {item.isDir && (
+                                      <li className={(item.path === currentPath) ? "current" : ""} onClick={() => handleSelectPath(item.path)}>
+                                        {item.name}
                                       </li>
-                                  )
-                                })}
-                              </Fragment>
-                          )
-                        })}
-                      </ul>
+                                    )}
+                                  </Fragment>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                        <div className="files">
+                          <ul>
+                            {directoryList.items.map((item, index) => {
+                              if(item.isDir) {
+                                return <></>
+                              }
+                              return (
+                                  <Fragment key={item.path}>
+                                    {!item.isDir && (
+                                      <li className={(item.path === currentPath) ? "current" : ""}>
+                                        {item.name}
+                                      </li>
+                                    )}
+                                    {/*
+                                    {item.items.map((file, fileIndex) => {
+                                      return (
+                                          <li key={file.path} onClick={() => {
+                                            if(!file.isDir) {
+                                              handleOpenFile(file)
+                                            }
+                                          }}>
+                                            |-- {file.name}
+                                          </li>
+                                      )
+                                    })}
+                                    */}
+                                  </Fragment>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                      </div>
                     </>
                 )}
 
