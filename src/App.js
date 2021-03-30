@@ -7,12 +7,16 @@ import {useEffect} from "react";
 import IdentiCat from "./IdentiCat";
 
 function App() {
+  const bucketName = "com.endowl.space-case"
   // TODO: Determine if it makes sense to only keep track of identities OR spaceUsers and derive the other from that?
   const [browserStorage, setBrowserStorage] = useState({})
   const [identities, setIdentities] = useState({})
   const [spaceUsers, setSpaceUsers] = useState({})
   const [currentUser, setCurrentUser] = useState(null)
   const [spaceStorage, setSpaceStorage] = useState({})
+
+  const [directoryList, setDirectoryList] = useState({ items: [] })
+  const [currentPath, setCurrentPath] = useState("")
 
 
   // Use first 4 bytes of pubKey to create catId
@@ -22,6 +26,14 @@ function App() {
       hexcode = hexcode + value.toString(16).padStart(2, '0')
     })
     // console.log("hexcode", hexcode)
+    return hexcode
+  }
+
+  const hexFromPubKey = (pubKey) => {
+    let hexcode = "0x"
+    _.forEach(pubKey, (value) => {
+      hexcode = hexcode + value.toString(16).padStart(2, '0')
+    })
     return hexcode
   }
 
@@ -94,6 +106,49 @@ function App() {
     setSpaceStorage(userSpaceStorage)
   }
 
+
+  const handleOpenFile = async (file) => {
+    // read content of an uploaded file
+    console.log("Request to open file")
+    // const fileResponse = await props.spaceStorage.openFile({ bucket: bucketName, path: '/file.txt'});
+    const fileResponse = await spaceStorage.openFile({ bucket: bucketName, path: file.path});
+    const fileContent = await fileResponse.consumeStream();
+    console.log("fileContent: ", fileContent)
+  }
+
+  const readStorage = async () => {
+    const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: true })
+    setDirectoryList(ls)
+    console.log("ls: ", ls)
+    if(_.isEmpty(currentPath) && !_.isEmpty(ls.items)) {
+      console.log("currentPath not set, setting it to: ", ls.items[0].path)
+      setCurrentPath(ls.items[0].path)
+    }
+    return ls
+  }
+
+  const createFolder = async (folderName) => {
+    console.log("Creating Folder: ", folderName)
+    const mkdir = await spaceStorage.createFolder({ bucket: bucketName, path: folderName })
+    console.log("mkdir: ", mkdir)
+    setCurrentPath("/" + folderName)
+    await readStorage()
+  }
+
+  useEffect(() => {
+    console.log("spaceStorage updated")
+    if(!_.isEmpty(spaceStorage)) {
+      readStorage().then(ls => {
+        // Read spaceStorage from Fleek
+        // console.log("ls", ls)
+        if(_.isEmpty(ls.items)) {
+          console.log("SpaceStorage is empty, creating initial folder")
+          createFolder("My Art")
+        }
+      })
+    }
+  }, [spaceStorage])
+
   useEffect(() => {
     initializeUsers()
   }, [])
@@ -106,14 +161,13 @@ function App() {
               <p>Checking for saved identities</p>
             </>
         )}
-        {!_.isEmpty(identities) && (
+        {!_.isEmpty(identities) && _.isNull(currentUser) && (
             <>
               <div className="identity-selection">
                 <p>My Identities</p>
                 <>
                   {identities.map((id, index) => (
                       <div className={(!_.isNull(currentUser) && currentUser === index) ? "identity-choice current" : "identity-choice"} key={id.pubKey} onClick={() => handleSelectIdentity(index)}>
-                        {/*{id.toString().substr(7, 16)}...*/}
                         <IdentiCat catId={catIdFromPubKey(id.pubKey)} size="8" />
                         <small>0x{catIdFromPubKey(id.pubKey).substr(4)}...</small>
                       </div>
@@ -123,53 +177,57 @@ function App() {
                   </button>
                 </>
               </div>
-              {!_.isNull(currentUser) && (
-                  <div className="my-space">
-                    <p>My Space</p>
-
-                    {/*
-                    <div className="file-directory">
-                      {_.isEmpty(props.spaceStorage) && (
-                          <p>Loading user data...</p>
-                      )}
-                      {_.isEmpty(directoryList.items) && (
-                          <p>Initializing storage bucket...</p>
-                      )}
-                      {!_.isEmpty(directoryList.items) && (
-                          <>
-                            <p>Directories:</p>
-                            <ul>
-                              {directoryList.items.map((item, index) => {
-                                return (
-                                    <Fragment key={item.path}>
-                                      <li className={(item.path === currentPath) ? "current" : ""}>
-                                        {item.name}
-                                      </li>
-                                      {item.items.map((file, fileIndex) => {
-                                        return (
-                                            <li key={file.path} onClick={() => {
-                                              if(!file.isDir) {
-                                                handleOpenFile(file)
-                                              }
-                                            }}>
-                                              |-- {file.name}
-                                            </li>
-                                        )
-                                      })}
-                                    </Fragment>
-                                )
-                              })}
-                            </ul>
-                          </>
-                      )}
-
-                    </div>
-                    */}
-
-                  </div>
-              )}
             </>
         )}
+
+
+        {!_.isNull(currentUser) && (
+            <div className="my-space">
+              <IdentiCat catId={catIdFromPubKey(identities[currentUser].pubKey)} size="8" />
+              <small>{hexFromPubKey(identities[currentUser].pubKey)}</small>
+              {/*<input readOnly={true} value={hexFromPubKey(identities[currentUser].pubKey)} />*/}
+
+              <div className="file-directory">
+                {!_.isNull(currentUser) && _.isEmpty(spaceStorage) && (
+                    <p>Loading user data...</p>
+                )}
+                {_.isEmpty(directoryList.items) && (
+                    <p>Initializing storage bucket...</p>
+                )}
+                {!_.isEmpty(directoryList.items) && (
+                    <>
+                      <p>Directories:</p>
+                      <ul>
+                        {directoryList.items.map((item, index) => {
+                          return (
+                              <Fragment key={item.path}>
+                                <li className={(item.path === currentPath) ? "current" : ""}>
+                                  {item.name}
+                                </li>
+                                {item.items.map((file, fileIndex) => {
+                                  return (
+                                      <li key={file.path} onClick={() => {
+                                        if(!file.isDir) {
+                                          handleOpenFile(file)
+                                        }
+                                      }}>
+                                        |-- {file.name}
+                                      </li>
+                                  )
+                                })}
+                              </Fragment>
+                          )
+                        })}
+                      </ul>
+                    </>
+                )}
+
+              </div>
+
+            </div>
+        )}
+
+
       </header>
     </div>
   );
