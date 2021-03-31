@@ -1,5 +1,7 @@
 # Space Case
 
+Demo video: https://youtu.be/itK1P0bUPgA
+
 Fleek SpaceSDK identity management and file sharing demo.
 
 This app creats and manages Fleek user identities using the Fleek SpaceSDK.  We incorporated the Moon Cat Rescue library to generate unique "identicats", created by parsing each user's public keys to produce easily recognizable icons.
