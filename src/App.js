@@ -171,8 +171,20 @@ function App() {
     console.log("Request to open file")
     const file = currentFile
     console.log("file: ", file)
-    const fileResponse = await spaceStorage.openFile({ bucket: bucketName, path: file});
-    const fileContent = await fileResponse.consumeStream();
+
+    // TODO: Get this working! Currently getting error from UserStorage "File not found"
+    return // TODO: Delete this, just here to prevent failure
+
+    let fileResponse
+    let fileContent
+    try {
+      fileResponse = await spaceStorage.openFile({bucket: bucketName, path: file});
+      fileContent = await fileResponse.consumeStream();
+    } catch (e) {
+      console.log("ERROR: Failed to openFile fom spaceStorage using uuid: ", e.toString())
+      return
+    }
+
     console.log("fileContent: ", fileContent)
 
     // Save file locally
@@ -196,6 +208,43 @@ function App() {
       document.body.removeChild(link);
     }
   }
+
+  const handleOpenReceivedFile = async (uuid) => {
+    console.log("Request to open file shared with us by UUID: ", uuid)
+    const response = await spaceStorage.openFileByUuid({
+      uuid: 'file-uu-id',
+    });
+    let fileName = response.entry.name;
+    // response.stream is an async iterable
+    for await (const chunk of response.stream) {
+      // aggregate the chunks based on your logic
+    }
+    // response also contains a convenience function consumeStream
+    const fileBytes = await response.consumeStream();
+
+    // Save file locally
+    // TODO: Fix this - it doesn't seem to be encoding the binary data properly
+    const blob = new Blob(fileBytes);
+    const link = document.createElement('a');
+    // Browsers that support HTML5 download attribute
+    // let fileName = file
+    const slash = fileName.lastIndexOf("/")
+    if(slash > -1) {
+      fileName = fileName.substr(slash + 1)
+    }
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+  }
+
 
   const handleSelectPath = async (path) => {
     console.log("Request to select path: ", path)
@@ -509,7 +558,7 @@ function App() {
                               return (
                                   <div>
                                     Inviter: <small>0x{fileInvitations.inviterPublicKey}</small><br />
-                                    Path: {item.path}
+                                    File: <a href="#" onClick={() => handleOpenReceivedFile(item.uuid)}>{item.path}</a>
                                   </div>
                               )
                             })}
