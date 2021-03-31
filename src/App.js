@@ -50,6 +50,16 @@ function App() {
     return hexcode
   }
 
+  const pubKeyFromHex = (hex) => {
+    console.log("pubKeyFromHex: ", hex)
+    let pubKey = []
+    // Skip over '0x' and then turn each to hex characters into an integer and push it to pubKey
+    for(let i=2; i < hex.length; i+=2) {
+      pubKey.push(parseInt(hex.substr(i, 2), 16))
+    }
+    console.log("pubKey: ", pubKey)
+  }
+
   const initializeUsers = async () => {
     console.log("Initializing users from browser storage")
     const browserUserStorage = new BrowserStorage()
@@ -216,7 +226,7 @@ function App() {
     selectedContacts.map(index => {
       publicKeys.push({
         id: contacts[index].label,
-        pk: contacts[index].address
+        pk: pubKeyFromHex(contacts[index].address)
       })
     })
 
