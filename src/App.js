@@ -22,6 +22,10 @@ function App() {
   const [fileList, setFileList] = useState([])
   const [currentFile, setCurrentFile] = useState("")
   const [inputFile, setInputFile] = useState()
+  const [contactLabel, setContactLabel] = useState("")
+  const [contactAddress, setContactAddress] = useState("")
+  const [contacts, setContacts] = useState([])
+  const [selectedContacts, setSelectedContacts] = useState([])
 
   // Use first 4 bytes of pubKey to create catId for use with identiCat
   const catIdFromPubKey = (pubKey) => {
@@ -29,6 +33,12 @@ function App() {
     _.forEach(_.slice(pubKey, 0, 4), (value) => {
       hexcode = hexcode + value.toString(16).padStart(2, '0')
     })
+    return hexcode
+  }
+
+  const catIdFromAddress = (address) => {
+    let hexcode = "0x00" + address.substr(2,10)
+    console.log("hexcode", hexcode)
     return hexcode
   }
 
@@ -191,6 +201,50 @@ function App() {
   }
   */
 
+  const handleShareFile = async () => {
+    console.log("Request to share file")
+    if(_.isEmpty(currentFile)) {
+      console.log("ERROR: No file selected")
+      return
+    }
+    if(_.isEmpty(selectedContacts)) {
+      console.log("ERROR: No contacts selected")
+      return
+    }
+
+    let publicKeys = []
+    selectedContacts.map(index => {
+      publicKeys.push({
+        id: contacts[index].label,
+        pk: contacts[index].address
+      })
+    })
+
+    const shareResult = await spaceStorage.shareViaPublicKey({
+      publicKeys: publicKeys,
+      paths: [{
+        bucket: bucketName,
+        path: currentFile,
+      }]
+    })
+
+    console.log("shareResult:", shareResult)
+
+    // you can share privately with existing users via their public key:
+    /*
+    await spaceStorage.shareViaPublicKey({
+      publicKeys: [{
+        id: 'user@email.com', // or any identifier for the user
+        pk: 'user-pk-hex-or-multibase', // optional, omit if user doesn't exist yet, it would generate temp access key
+      }],
+      paths: [{
+        bucket: 'personal',
+        path: '/file/path/here'
+      }],
+    });
+     */
+  }
+
   const handleFileUpload = async (event) => {
     // upload a file
     const file = event.target.files[0];
@@ -253,6 +307,45 @@ function App() {
     */
   }
 
+  const handleAddContact = () => {
+    // Update local copy of contact list
+    let tmpContacts = _.clone(contacts)
+    const newContact = {
+      label: contactLabel,
+      address: contactAddress,
+    }
+    console.log("newContact: ", newContact)
+    tmpContacts.push(newContact)
+    setContacts(tmpContacts)
+    setContactLabel("")
+    setContactAddress("")
+
+    // TODO: Update contacts file on Fleek
+  }
+
+  const handleToggleContactSelection = (index) => {
+    console.log("Request to toggle selection of contact: ", index)
+    const foundSelectedContact = _.indexOf(selectedContacts, index)
+    const selectedContactsCopy = _.clone(selectedContacts)
+    // Check if the given contact is in the current list of selected contacts
+    console.log("selectedContacts: ", selectedContacts)
+    if(foundSelectedContact === -1) {
+      console.log("Contact not already selected, adding them")
+      // Contact was not already selected, add them to selectedContacts
+      selectedContactsCopy.push(index)
+      console.log("selectedContactsCopy: ", selectedContactsCopy)
+      setSelectedContacts(selectedContactsCopy)
+    } else {
+      console.log("Contact was already selected, removing them")
+      // Remove contact from selectedContacts
+      _.pull(selectedContactsCopy, index)
+      console.log("selectedContactsCopy: ", selectedContactsCopy)
+      setSelectedContacts(selectedContactsCopy)
+    }
+  }
+
+
+  // TODO: Load contacts file from Fleek
 
 
 
@@ -307,7 +400,7 @@ function App() {
 
         {!_.isNull(currentUser) && (
             <div className="my-space">
-              <IdentiCat catId={catIdFromPubKey(identities[currentUser].pubKey)} size="8" />
+              <IdentiCat catId={catIdFromPubKey(identities[currentUser].pubKey)} size="4" />
               <small>{hexFromPubKey(identities[currentUser].pubKey)}</small>
               {/*<input readOnly={true} value={hexFromPubKey(identities[currentUser].pubKey)} />*/}
 
@@ -332,9 +425,7 @@ function App() {
                       <button onClick={handleOpenFile} disabled={_.isEmpty(currentFile)}>
                         [] Open File
                       </button>
-                      <br />
-                      <input placeholder="address" />
-                      <button disabled={_.isEmpty(currentFile)}>
+                      <button onClick={handleShareFile} disabled={_.isEmpty(currentFile) || _.isEmpty(selectedContacts)}>
                         &amp; Share
                       </button>
                       <div>
@@ -375,6 +466,22 @@ function App() {
                           </ul>
                         </div>
                       </div>
+
+                      <h3>My Contacts:</h3>
+                      <input placeholder="label" value={contactLabel} onChange={e => setContactLabel(e.target.value)} />
+                      <input placeholder="address" value={contactAddress} onChange={e => setContactAddress(e.target.value)} />
+                      <button onClick={handleAddContact}>
+                        + Add
+                      </button>
+                      <br />
+                      {contacts.map((contact, i) => {
+                        return (
+                            <div className={(_.indexOf(selectedContacts, i) !== -1) ? "identity-choice current" : "identity-choice"} key={i} onClick={() => handleToggleContactSelection(i)}>
+                              <IdentiCat catId={catIdFromAddress(contact.address)} size="4" />
+                              <small title={contact.address}>{contact.label}</small>
+                            </div>
+                        )
+                      })}
                     </>
                 )}
 
