@@ -26,6 +26,7 @@ function App() {
   const [contactAddress, setContactAddress] = useState("")
   const [contacts, setContacts] = useState([])
   const [selectedContacts, setSelectedContacts] = useState([])
+  const [receivedFiles, setReceivedFiles] = useState({files: []})
 
   // Use first 4 bytes of pubKey to create catId for use with identiCat
   const catIdFromPubKey = (pubKey) => {
@@ -166,6 +167,16 @@ function App() {
       const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: false })
       setDirectoryList(directoriesFromSpace(ls))
     }
+
+    // Refresh shared files while we're at it
+    getFilesSharedWithMe()
+  }
+
+
+  const getFilesSharedWithMe = async() => {
+    const result = await spaceStorage.getFilesSharedWithMe()
+    console.log("getFilesSharedWithMe result: ", result)
+    setReceivedFiles(result)
   }
 
   // Refresh root directory listing
@@ -173,6 +184,9 @@ function App() {
     const ls = await spaceStorage.listDirectory({ bucket: bucketName, path: '', recursive: false })
     setDirectoryList(directoriesFromSpace(ls))
     console.log("ls: ", ls)
+
+    getFilesSharedWithMe()
+
     return ls
   }
 
@@ -225,7 +239,7 @@ function App() {
     let publicKeys = []
     selectedContacts.map(index => {
       publicKeys.push({
-        id: contacts[index].label,
+        // id: contacts[index].label,
         pk: pubKeyFromHex(contacts[index].address)
       })
     })
@@ -239,6 +253,8 @@ function App() {
     })
 
     console.log("shareResult:", shareResult)
+
+    // TODO: Figure out how to get shared file to show up for recipient!!!!
 
     // you can share privately with existing users via their public key:
     /*
@@ -492,6 +508,14 @@ function App() {
                             </div>
                         )
                       })}
+
+                      {!_.isEmpty(receivedFiles.files) && (
+                          <>
+                            <h3>Received Files:</h3>
+                            TODO: Display received files here...
+                          </>
+                      )}
+
                     </>
                 )}
 
