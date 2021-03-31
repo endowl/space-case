@@ -1,6 +1,7 @@
 import './App.css';
 import { Users, BrowserStorage } from '@spacehq/users'
 import {UserStorage} from "@spacehq/storage";
+import {GetAddressFromPublicKey} from '@spacehq/sdk'
 import _ from 'lodash'
 import {Fragment, useState} from "react";
 import {useEffect} from "react";
@@ -9,6 +10,7 @@ import words from 'random-words';
 
 function App() {
   const bucketName = "com.endowl.space-case"
+  const contactsPath = "com.endowl.space-case.contacts"
   // TODO: Determine if it makes sense to only keep track of identities OR spaceUsers and derive the other from that?
   const [browserStorage, setBrowserStorage] = useState({})
   const [identities, setIdentities] = useState({})
@@ -102,6 +104,12 @@ function App() {
 
     setIdentities(browserUserList)
     setSpaceUsers(users)
+
+    // TODO: Load and save contacts to Fleek instead of local storage
+    let savedContacts = JSON.parse(localStorage.getItem(contactsPath));
+    if(!_.isEmpty(savedContacts)) {
+      setContacts(savedContacts)
+    }
   }
 
   const handleNewIdentity = async () => {
@@ -112,6 +120,12 @@ function App() {
     console.log("Authenticated new user")
     let browserUserList = await browserStorage.list()
     setIdentities(browserUserList)
+
+    // Initialize a mailbox for any new users to allow sharing
+    console.log("Initializing new users mailbox")
+    const userSpaceStorage = new UserStorage(newUser)
+    const mailboxResult = await userSpaceStorage.initMailbox()
+    console.log("mailboxResult: ", mailboxResult)
   }
 
   const handleSelectIdentity = async (index) => {
@@ -124,6 +138,9 @@ function App() {
     const userSpaceStorage = new UserStorage(user)
     console.log("userSpaceStorage: ", userSpaceStorage)
     setSpaceStorage(userSpaceStorage)
+
+    // NOTE: how does GetAddressFromPublicKey work? no good docs, throws an "Unsupported encoding" error.
+    // console.log("getAddressFromPublicKey", GetAddressFromPublicKey(user.identity.pubKey.toString()))
   }
 
   const handleSelectFile = async (file) => {
@@ -139,6 +156,27 @@ function App() {
     const fileResponse = await spaceStorage.openFile({ bucket: bucketName, path: file});
     const fileContent = await fileResponse.consumeStream();
     console.log("fileContent: ", fileContent)
+
+    // Save file locally
+    // TODO: Fix this - it doesn't seem to be encoding the binary data properly
+    const blob = new Blob(fileContent);
+    const link = document.createElement('a');
+    // Browsers that support HTML5 download attribute
+    let fileName = file
+    const slash = file.lastIndexOf("/")
+    if(slash > -1) {
+      fileName = file.substr(slash + 1)
+    }
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   }
 
   const handleSelectPath = async (path) => {
@@ -240,9 +278,12 @@ function App() {
     selectedContacts.map(index => {
       publicKeys.push({
         // id: contacts[index].label,
-        pk: pubKeyFromHex(contacts[index].address)
+        // pk: pubKeyFromHex(contacts[index].address)
+        pk: contacts[index].address.substr(2)
       })
     })
+
+    console.log("public keys??? ", publicKeys)
 
     const shareResult = await spaceStorage.shareViaPublicKey({
       publicKeys: publicKeys,
@@ -253,6 +294,8 @@ function App() {
     })
 
     console.log("shareResult:", shareResult)
+    console.log("shareResult.publicKeys[0].pk hex", hexFromPubKey(shareResult.publicKeys[0].pk))
+    console.log("shareResult.publicKeys[0].tempKey hex", hexFromPubKey(shareResult.publicKeys[0].pk))
 
     // TODO: Figure out how to get shared file to show up for recipient!!!!
 
@@ -346,6 +389,8 @@ function App() {
     setContactLabel("")
     setContactAddress("")
 
+    localStorage.setItem(contactsPath, JSON.stringify(tmpContacts))
+
     // TODO: Update contacts file on Fleek
   }
 
@@ -428,7 +473,7 @@ function App() {
             <div className="my-space">
               <IdentiCat catId={catIdFromPubKey(identities[currentUser].pubKey)} size="4" />
               <small>{hexFromPubKey(identities[currentUser].pubKey)}</small>
-              {/*<input readOnly={true} value={hexFromPubKey(identities[currentUser].pubKey)} />*/}
+              {/*<small>{identities[currentUser].pubKey}</small>*/}
 
               <div className="">
                 {!_.isNull(currentUser) && _.isEmpty(spaceStorage) && (
@@ -509,12 +554,15 @@ function App() {
                         )
                       })}
 
-                      {!_.isEmpty(receivedFiles.files) && (
+                      {!_.isEmpty(receivedFiles.files) || true && (
                           <>
                             <h3>Received Files:</h3>
-                            TODO: Display received files here...
+                            Display received files here...
                           </>
                       )}
+
+                      <h3>Received Messages:</h3>
+                      Display received messages here...
 
                     </>
                 )}
