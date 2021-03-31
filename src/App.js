@@ -29,6 +29,7 @@ function App() {
   const [contacts, setContacts] = useState([])
   const [selectedContacts, setSelectedContacts] = useState([])
   const [receivedFiles, setReceivedFiles] = useState({files: []})
+  const [fileInvitations, setfileInvitations] = useState([])
 
   // Use first 4 bytes of pubKey to create catId for use with identiCat
   const catIdFromPubKey = (pubKey) => {
@@ -41,7 +42,7 @@ function App() {
 
   const catIdFromAddress = (address) => {
     let hexcode = "0x00" + address.substr(2,10)
-    console.log("hexcode", hexcode)
+    // console.log("hexcode", hexcode)
     return hexcode
   }
 
@@ -138,6 +139,23 @@ function App() {
     const userSpaceStorage = new UserStorage(user)
     console.log("userSpaceStorage: ", userSpaceStorage)
     setSpaceStorage(userSpaceStorage)
+
+    // TODO: Evaluate if this is being done right and is in the most optimal location
+    // Listen for spaceStorage events (like shared files...)
+    // await userSpaceStorage.initListener();
+    const response = await userSpaceStorage.notificationSubscribe();
+
+    response.on('data', (data) => {
+      const {notification: {relatedObject}} = data;
+      console.log('file invitation: ', relatedObject);
+      // let fileInvitationsCopy = _.clone(fileInvitations)
+      // fileInvitationsCopy.push(relatedObject.toString())
+      // setfileInvitations(fileInvitationsCopy)
+
+      setfileInvitations(relatedObject)
+      // TODO: Save an array of invitations, not just the most recent
+    })
+
 
     // NOTE: how does GetAddressFromPublicKey work? no good docs, throws an "Unsupported encoding" error.
     // console.log("getAddressFromPublicKey", GetAddressFromPublicKey(user.identity.pubKey.toString()))
@@ -294,8 +312,8 @@ function App() {
     })
 
     console.log("shareResult:", shareResult)
-    console.log("shareResult.publicKeys[0].pk hex", hexFromPubKey(shareResult.publicKeys[0].pk))
-    console.log("shareResult.publicKeys[0].tempKey hex", hexFromPubKey(shareResult.publicKeys[0].pk))
+    // console.log("shareResult.publicKeys[0].pk hex", hexFromPubKey(shareResult.publicKeys[0].pk))
+    // console.log("shareResult.publicKeys[0].tempKey hex", hexFromPubKey(shareResult.publicKeys[0].pk))
 
     // TODO: Figure out how to get shared file to show up for recipient!!!!
 
@@ -484,6 +502,20 @@ function App() {
                 )}
                 {(!_.isEmpty(fileList) || !_.isEmpty(directoryList)) && (
                     <>
+                      {!_.isEmpty(fileInvitations) && !_.isEmpty(fileInvitations.itemPaths) && (
+                          <>
+                            <h3>Received Files Invitations:</h3>
+                            {fileInvitations.itemPaths.map((item, index) => {
+                              return (
+                                  <div>
+                                    Inviter: <small>0x{fileInvitations.inviterPublicKey}</small><br />
+                                    Path: {item.path}
+                                  </div>
+                              )
+                            })}
+                          </>
+                      )}
+
                       <h3>My Files:</h3>
                       <button onClick={handleNewDirectory}>
                         + Mkdir
@@ -554,15 +586,19 @@ function App() {
                         )
                       })}
 
+                      {/*
                       {!_.isEmpty(receivedFiles.files) || true && (
                           <>
                             <h3>Received Files:</h3>
                             Display received files here...
                           </>
                       )}
+                      */}
 
+                      {/*
                       <h3>Received Messages:</h3>
                       Display received messages here...
+                      */}
 
                     </>
                 )}
